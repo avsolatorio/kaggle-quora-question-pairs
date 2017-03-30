@@ -81,6 +81,9 @@ def auto_reshape_cos(f):
 
 cosine_similarity = auto_reshape_cos(cosine_similarity)
 
+def einsum_dot(a, b):
+    return np.einsum('ij,ji->i', a, b.T)
+
 
 def fast_pairwise_cos_sim(a, b):
     an = np.linalg.norm(a, ord=2, axis=1)
@@ -93,6 +96,15 @@ def fast_pairwise_cos_sim(a, b):
     return c
 
 
+def einsum_pairwise_cos_sim(a, b):
+    an = np.linalg.norm(a, ord=2, axis=1)
+    bn = np.linalg.norm(b, ord=2, axis=1)
+    ap = (a / an.reshape(a.shape[0], 1))
+    bp = (b / bn.reshape(b.shape[0], 1))
+
+    return einsum_dot(ap, bp)
+
+
 def np_pairwise_cos_sim(a, b):
     an = np.linalg.norm(a, ord=2, axis=1)
     bn = np.linalg.norm(b, ord=2, axis=1)
@@ -101,6 +113,82 @@ def np_pairwise_cos_sim(a, b):
     c = a.dot(b.T).diagonal()
 
     return c
+
+# Distances
+# https://brenocon.com/blog/2012/03/cosine-similarity-pearson-correlation-and-ols-coefficients/
+# https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.cdist.html
+def rowwise_minkowski_distance(a, b, p):
+    return np.linalg.norm((a-b), ord=p, axis=1)
+
+
+def rowwise_correlation(a, b):
+    a = (a - a.mean(axis=1).reshape(a.shape[0], 1))
+    b = (b - b.mean(axis=1).reshape(b.shape[0], 1))
+    return einsum_pairwise_cos_sim(a, b)
+
+
+def ols_coef(a, b, norm_var):
+    # one-variable linear regression coefficient.
+    # norm_var determines which vector to use for normalization.
+    c = einsum_dot(a, b)
+
+    if norm_var == 0:
+        n = np.linalg.norm(a, ord=2, axis=1)
+    elif norm_var == 1:
+        n = np.linalg.norm(b, ord=2, axis=1)
+    else:
+        raise ValueError('norm_var value unknown.')
+
+    return c / (n**2)
+
+
+def ols_coef_with_intercept(a, b, norm_var):
+    # one-variable linear regression coefficient.
+    # norm_var determines which vector to use for normalization.
+    if norm_var == 0:
+        a = (a - a.mean(axis=1).reshape(a.shape[0], 1))
+    elif norm_var == 1:
+        b = (b - b.mean(axis=1).reshape(b.shape[0], 1))
+    else:
+        raise ValueError('norm_var value unknown.')
+
+    return ols_coef(a, b, norm_var=norm_var)
+
+
+def to_binary(x):
+    return 1.0 * (x > 0)
+
+
+def rowwise_binary_hamming_distance(a, b, binary_input):
+    if not binary_input:
+        # Input is assumed to be a vector ranging from -inf to inf
+        # Convert to binary
+        a = to_binary(a)
+        b = to_binary(b)
+
+    return np.logical_xor(a, b).sum(axis=1) / float(a.shape[1])
+
+
+def rowwise_binary_jaccard_similarity(a, b, binary_input):
+    if not binary_input:
+        # Input is assumed to be a vector ranging from -inf to inf
+        # Convert to binary
+        a = to_binary(a)
+        b = to_binary(b)
+
+    return 1.0 * np.logical_and(a, b).sum(axis=1) / np.logical_or(a, b).sum(axis=1)
+
+
+def rowwise_chebyshev_distance(a, b):
+    return np.abs(a - b).max(axis=1)
+
+
+def rowwise_canberra_distance(a, b):
+    return (np.abs(a - b) / (np.abs(a) + np.abs(b))).sum(axis=1)
+
+
+def rowwise_braycurtis_distance(a, b):
+    return np.abs(a - b).sum(axis=1) / np.abs(a + b).sum(axis=1)
 
 
 def load_train_test():
