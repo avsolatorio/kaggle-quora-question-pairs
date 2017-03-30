@@ -82,6 +82,27 @@ def auto_reshape_cos(f):
 cosine_similarity = auto_reshape_cos(cosine_similarity)
 
 
+def fast_pairwise_cos_sim(a, b):
+    an = np.linalg.norm(a, ord=2, axis=1)
+    bn = np.linalg.norm(b, ord=2, axis=1)
+    ap = (a / an.reshape(a.shape[0], 1)).reshape(np.prod(a.shape))
+    bp = (b / bn.reshape(b.shape[0], 1)).reshape(np.prod(b.shape))
+    cp = ap * bp
+    c = cp.reshape(a.shape).sum(axis=1)
+
+    return c
+
+
+def np_pairwise_cos_sim(a, b):
+    an = np.linalg.norm(a, ord=2, axis=1)
+    bn = np.linalg.norm(b, ord=2, axis=1)
+    a = (a / an.reshape(a.shape[0], 1))
+    b = (b / bn.reshape(b.shape[0], 1))
+    c = a.dot(b.T).diagonal()
+
+    return c
+
+
 def load_train_test():
     train_df = pd.read_csv('../input/train.csv')
     train_df.fillna('zxzxzx zxzxzx', inplace=True) # For id: qid2 174364
