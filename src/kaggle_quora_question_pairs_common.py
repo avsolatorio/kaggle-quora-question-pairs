@@ -510,7 +510,7 @@ def load_google_news_w2v():
 
 def train_word2vec(
     tokenized_questions,
-    pre_trained_model='GoogleNews-vectors-negative300.bin.gz'
+    pre_trained_model='GoogleNews-vectors-negative300.bin.gz',
     size=300,
     iter=100,
     min_count=1,
