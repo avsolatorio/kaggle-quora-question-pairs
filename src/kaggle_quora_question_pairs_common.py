@@ -159,6 +159,24 @@ def to_binary(x):
     return 1.0 * (x > 0)
 
 
+def get_C(a, b, returns='all'):
+    not_a = 1 - a
+    not_b = 1 - b
+
+    if returns == 'all':
+        ntt = (a * b).sum(axis=1)
+        ntf = (a * not_b).sum(axis=1)
+        nff = (not_a * not_b).sum(axis=1)
+        nft = (not_a * b).sum(axis=1)
+        return (ntt, ntf, nff, nft)
+    elif returns == 'mix':
+        ntf = (a * not_b).sum(axis=1)
+        nft = (not_a * b).sum(axis=1)
+        return (ntf, nft)
+    else:
+        raise ValueError('Unknown returns parameter!')
+
+
 def rowwise_binary_hamming_distance(a, b, binary_input):
     if not binary_input:
         # Input is assumed to be a vector ranging from -inf to inf
@@ -189,6 +207,82 @@ def rowwise_canberra_distance(a, b):
 
 def rowwise_braycurtis_distance(a, b):
     return np.abs(a - b).sum(axis=1) / np.abs(a + b).sum(axis=1)
+
+
+def rowwise_yule_distance(a, b, binary_input, pre_computed_vars={}):
+    if not binary_input:
+        # Input is assumed to be a vector ranging from -inf to inf
+        # Convert to binary
+        a = to_binary(a)
+        b = to_binary(b)
+
+    if not pre_computed_vars:
+        cTT, cTF, cFF, cFT = get_C(a, b)
+    else:
+        cTT = pre_computed_vars.get('cTT')
+        cTF = pre_computed_vars.get('cTF')
+        cFF = pre_computed_vars.get('cFF')
+        cFT = pre_computed_vars.get('cFT')
+
+    R = 2.0 * cTF * cFT
+
+    return R / ((cTT * cFF) + (R / 2.0))
+
+
+def rowwise_dice_distance(a, b, binary_input, pre_computed_vars={}):
+    if not binary_input:
+        # Input is assumed to be a vector ranging from -inf to inf
+        # Convert to binary
+        a = to_binary(a)
+        b = to_binary(b)
+
+    if not pre_computed_vars:
+        cTT, cTF, cFF, cFT = get_C(a, b)
+    else:
+        cTT = pre_computed_vars.get('cTT')
+        cTF = pre_computed_vars.get('cTF')
+        cFT = pre_computed_vars.get('cFT')
+
+    return (cTF + cFT) / ((2.* cTT) + cFT + cTF)
+
+
+def rowwise_kulsinski_distance(a, b, binary_input, pre_computed_vars={}):
+    if not binary_input:
+        # Input is assumed to be a vector ranging from -inf to inf
+        # Convert to binary
+        a = to_binary(a)
+        b = to_binary(b)
+
+    if not pre_computed_vars:
+        cTT, cTF, cFF, cFT = get_C(a, b)
+    else:
+        cTT = pre_computed_vars.get('cTT')
+        cTF = pre_computed_vars.get('cTF')
+        cFT = pre_computed_vars.get('cFT')
+
+    n = float(a.shape[1])
+
+    return (cTF + cFT - cTT + n) / (cFT + cTF + n)
+
+
+def rowwise_rogerstanimoto_distance(a, b, binary_input, pre_computed_vars={}):
+    if not binary_input:
+        # Input is assumed to be a vector ranging from -inf to inf
+        # Convert to binary
+        a = to_binary(a)
+        b = to_binary(b)
+
+    if not pre_computed_vars:
+        cTT, cTF, cFF, cFT = get_C(a, b)
+    else:
+        cTT = pre_computed_vars.get('cTT')
+        cTF = pre_computed_vars.get('cTF')
+        cFF = pre_computed_vars.get('cFF')
+        cFT = pre_computed_vars.get('cFT')
+
+    R = 2.0 * (cTF + cFT)
+
+    return R / (cTT + cFF + R)
 
 
 def load_train_test():
