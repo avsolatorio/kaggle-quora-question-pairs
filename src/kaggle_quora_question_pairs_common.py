@@ -531,7 +531,7 @@ def train_word2vec(
     )
 
     # Initialize vocab
-    word_vectors.build_vocab(my_sentences)
+    word_vectors.build_vocab(tokenized_questions)
 
     # Initialize vectors in local model with with vectors from pre-trained model with overlapping vocabulary.
     # Set `lockf` to 1 for re-training
