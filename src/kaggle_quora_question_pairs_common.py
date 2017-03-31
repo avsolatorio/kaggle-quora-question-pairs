@@ -518,6 +518,7 @@ def train_word2vec(
     workers=7,
     min_alpha=0.0001,
     window=5,
+    binary=True,
 ):
     # https://github.com/RaRe-Technologies/gensim/issues/1245
     # List of tokenized questions.
@@ -535,7 +536,7 @@ def train_word2vec(
 
     # Initialize vectors in local model with with vectors from pre-trained model with overlapping vocabulary.
     # Set `lockf` to 1 for re-training
-    word_vectors.intersect_word2vec_format(pre_trained_model, lockf=1, binary=True)
+    word_vectors.intersect_word2vec_format(pre_trained_model, lockf=1, binary=binary)
 
     # Adjust pre-trained vectors to adapt its distribution with that of the local data via retraining.
     word_vectors.train(tokenized_questions)
