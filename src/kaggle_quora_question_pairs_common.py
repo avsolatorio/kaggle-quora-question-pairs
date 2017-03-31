@@ -85,9 +85,13 @@ def einsum_dot(a, b):
     return np.einsum('ij,ji->i', a, b.T)
 
 
+def l2_norm(x):
+    return np.linalg.norm(x, ord=2, axis=1)
+
+
 def fast_pairwise_cos_sim(a, b):
-    an = np.linalg.norm(a, ord=2, axis=1)
-    bn = np.linalg.norm(b, ord=2, axis=1)
+    an = l2_norm(a)
+    bn = l2_norm(b)
     ap = (a / an.reshape(a.shape[0], 1)).reshape(np.prod(a.shape))
     bp = (b / bn.reshape(b.shape[0], 1)).reshape(np.prod(b.shape))
     cp = ap * bp
@@ -97,8 +101,8 @@ def fast_pairwise_cos_sim(a, b):
 
 
 def einsum_pairwise_cos_sim(a, b):
-    an = np.linalg.norm(a, ord=2, axis=1)
-    bn = np.linalg.norm(b, ord=2, axis=1)
+    an = l2_norm(a)
+    bn = l2_norm(b)
     ap = (a / an.reshape(a.shape[0], 1))
     bp = (b / bn.reshape(b.shape[0], 1))
 
@@ -106,8 +110,8 @@ def einsum_pairwise_cos_sim(a, b):
 
 
 def np_pairwise_cos_sim(a, b):
-    an = np.linalg.norm(a, ord=2, axis=1)
-    bn = np.linalg.norm(b, ord=2, axis=1)
+    an = l2_norm(a)
+    bn = l2_norm(b)
     a = (a / an.reshape(a.shape[0], 1))
     b = (b / bn.reshape(b.shape[0], 1))
     c = a.dot(b.T).diagonal()
@@ -133,9 +137,9 @@ def ols_coef(a, b, norm_var):
     c = einsum_dot(a, b)
 
     if norm_var == 0:
-        n = np.linalg.norm(a, ord=2, axis=1)
+        n = l2_norm(a)
     elif norm_var == 1:
-        n = np.linalg.norm(b, ord=2, axis=1)
+        n = l2_norm(b)
     else:
         raise ValueError('norm_var value unknown.')
 
@@ -283,6 +287,72 @@ def rowwise_rogerstanimoto_distance(a, b, binary_input, pre_computed_vars={}):
     R = 2.0 * (cTF + cFT)
 
     return R / (cTT + cFF + R)
+
+
+def rowwise_russellrao_distance(a, b, binary_input, pre_computed_vars={}):
+    if not binary_input:
+        # Input is assumed to be a vector ranging from -inf to inf
+        # Convert to binary
+        a = to_binary(a)
+        b = to_binary(b)
+
+    if not pre_computed_vars:
+        cTT = (a * b).sum(axis=1)
+    else:
+        cTT = pre_computed_vars.get('cTT')
+
+    n = float(a.shape[1])
+
+    return (n - cTT) / n
+
+
+def rowwise_sokalmichener_distance(a, b, binary_input, pre_computed_vars={}):
+    if not binary_input:
+        # Input is assumed to be a vector ranging from -inf to inf
+        # Convert to binary
+        a = to_binary(a)
+        b = to_binary(b)
+
+    if not pre_computed_vars:
+        cTT, cTF, cFF, cFT = get_C(a, b)
+    else:
+        cTT = pre_computed_vars.get('cTT')
+        cTF = pre_computed_vars.get('cTF')
+        cFF = pre_computed_vars.get('cFF')
+        cFT = pre_computed_vars.get('cFT')
+
+    R = 2.0 * (cTF + cFT)
+    S = cFF + cTT
+
+    return R / (S + R)
+
+
+def rowwise_sokalsneath_distance(a, b, binary_input, pre_computed_vars={}):
+    if not binary_input:
+        # Input is assumed to be a vector ranging from -inf to inf
+        # Convert to binary
+        a = to_binary(a)
+        b = to_binary(b)
+
+    if not pre_computed_vars:
+        cTT, cTF, cFF, cFT = get_C(a, b)
+    else:
+        cTT = pre_computed_vars.get('cTT')
+        cTF = pre_computed_vars.get('cTF')
+        cFF = pre_computed_vars.get('cFF')
+        cFT = pre_computed_vars.get('cFT')
+
+    R = 2.0 * (cTF + cFT)
+
+    return R / (cTT + R)
+
+
+def rowwise_tanimoto_similarity(a, b):
+    num = einsum_dot(a, b)
+    an_sq = l2_norm(a)**2.0
+    bn_sq = l2_norm(b)**2.0
+
+    return num / (an_sq + bn_sq - num)
 
 
 def load_train_test():
@@ -436,3 +506,38 @@ def train_xgb(
 def load_google_news_w2v():
     wvmodel = Word2Vec.load_word2vec_format('GoogleNews-vectors-negative300.bin.gz', binary=True)
     return wvmodel
+
+
+def train_word2vec(
+    tokenized_questions,
+    pre_trained_model='GoogleNews-vectors-negative300.bin.gz'
+    size=300,
+    iter=100,
+    min_count=1,
+    negative=10,
+    workers=7,
+    min_alpha=0.0001,
+    window=5,
+):
+    # https://github.com/RaRe-Technologies/gensim/issues/1245
+    # List of tokenized questions.
+    # e.g. ['What', 'is', 'the', 'step', 'by', 'step', 'guide', 'to', 'invest', 'in', 'share', 'market', 'in', 'india']
+    # pre_trained_model can be any pre trained model that gensim accepts, e.g., Glove or GoogleNews word2vec
+
+    # Initialize model
+    word_vectors = Word2Vec(
+        size=size, iter=iter, min_count=min_count, negative=negative, workers=workers,
+        min_alpha=min_alpha, window=window,
+    )
+
+    # Initialize vocab
+    word_vectors.build_vocab(my_sentences)
+
+    # Initialize vectors in local model with with vectors from pre-trained model with overlapping vocabulary.
+    # Set `lockf` to 1 for re-training
+    word_vectors.intersect_word2vec_format(pre_trained_model, lockf=1, binary=True)
+
+    # Adjust pre-trained vectors to adapt its distribution with that of the local data via retraining.
+    word_vectors.train(tokenized_questions)
+
+    return word_vectors
