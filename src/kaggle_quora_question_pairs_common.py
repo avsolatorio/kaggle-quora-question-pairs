@@ -452,7 +452,8 @@ def log_loss_scorer(model, X, y):
     return log_loss(y, model.predict_proba(X))
 
 
-def resample_and_split_train_val_data(features_target_df, p=0.165, test_size=0.2):
+def resample_and_split_train_val_data(features_target_df, p=0.17426, test_size=0.2):
+    # p is derived from (-LL - log(1 - p)) / (log(p / (1 - p)) where p in the equation is a random is_duplicate value.
     x_train = features_target_df[features_target_df.columns.difference(['is_duplicate'])]
     y_train = features_target_df['is_duplicate']
 
